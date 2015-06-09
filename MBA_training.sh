@@ -87,6 +87,7 @@ mkdir -p ${outputDir}/${Training_Brain_Name}/{Transforms,Brain}
 
        echo -e "fnirting ${Training_Brain_Name}"
        fnirt --in=${Training_Brain} \
+             --ref=/usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz \
              --aff=${outputDir}/${Training_Brain_Name}/Transforms/${Training_Brain_Name}_T1toMNI.mat \
              --config=T1_2_MNI152_2mm.cnf \
              --cout=${outputDir}/${Training_Brain_Name}/Transforms/${Training_Brain_Name}_coef_T1_to_MNI \
