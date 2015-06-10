@@ -51,16 +51,16 @@ if [ ! -d ${outputDir} ]; then
 fi
 
     #directory where all processing takes place
-    mkdir -p ${outputDir}/MBA_intermediate_files
+    mkdir -p ${outputDir}/MBA_intermediate_files_${subjectT1_Name}
 
     #copy the T1 into the processing directory
-    cp ${subjectT1} ${outputDir}/MBA_intermediate_files
-    cd ${outputDir}/MBA_intermediate_files
+    cp ${subjectT1} ${outputDir}/MBA_intermediate_files_${subjectT1_Name}
+    cd ${outputDir}/MBA_intermediate_files_${subjectT1_Name}
     #change the orientation for FSL (RPI)
     #replace with function
     #ORIENTATION CODE HERE
          ############################################################
-         infile=${outputDir}/MBA_intermediate_files/${subjectT1_Name}
+         infile=${outputDir}/MBA_intermediate_files_${subjectT1_Name}/${subjectT1_Name}
          #Determine qform-orientation to properly reorient file to RPI (MNI) orientation
       xorient=`fslhd ${infile} | grep "^qform_xorient" | awk '{print $2}' | cut -c1`
       yorient=`fslhd ${infile} | grep "^qform_yorient" | awk '{print $2}' | cut -c1`
@@ -298,7 +298,7 @@ while [ ${loop_index} -lt ${#algorithm_arr[@]} ]; do
 
       #This is how we call the algorithm
      echo "clean param is ${clean_param}"
-     #sh -c "${clean_param}"
+     sh -c "${clean_param}"
       
      loop_index=$((${loop_index} + 1 ))
 done
@@ -307,7 +307,7 @@ done
 output_index=0
  for algorithm in ${algorithm_arr[@]}; do
     echo -e "\nThe brain mask should be named this: ${subjectT1_Name}_${algorithm}_${output_arr[${output_index}]}.nii.gz\n"
-    algorithm_brain_mask=$(ls ${outputDir}/MBA_intermediate_files/${subjectT1_Name}_${algorithm}_${output_arr[${output_index}]}.nii.gz)
+    algorithm_brain_mask=$(ls ${outputDir}/MBA_intermediate_files_${subjectT1_Name}/${subjectT1_Name}_${algorithm}_${output_arr[${output_index}]}.nii.gz)
     if [ $(echo ${algorithm_brain_mask} | wc -w) -gt 1 ];then
       echo -e "please specify a more specific outputfile in your call\nContinuing to next algorithm"
       continue 1
@@ -338,19 +338,19 @@ fslmaths ${subjectT1_Name}_uncorrected_mask_mean.nii.gz -thr 0.75 ${subjectT1_Na
 fslmaths ${subjectT1} -mas ${subjectT1_Name}_uncorrected_mask_mean_thresh.nii.gz ${subjectT1_Name}_uncorrected_brain.nii.gz
 
 #push the averaged brain into MNI space
-# flirt -in ${subjectT1_Name}_uncorrected_brain.nii.gz \
-#            -ref /usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz \
-#            -omat ${subjectT1_Name}_T1toMNI.mat
+flirt -in ${subjectT1_Name}_uncorrected_brain.nii.gz \
+           -ref /usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz \
+           -omat ${subjectT1_Name}_T1toMNI.mat
      
-# echo -e "fnirting ${subjectT1_Name}"
-# fnirt --in=${subjectT1} \
-#       --ref=/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz \
-#       --aff=${subjectT1_Name}_T1toMNI.mat \
-#       --config=T1_2_MNI152_2mm.cnf \
-#       --cout=${subjectT1_Name}_coef_T1_to_MNI \
-#       --iout=${subjectT1_Name}_T1_to_MNI.nii.gz \
-#       --jout=${subjectT1_Name}_T1_to_MNI \
-#       --jacrange=0.1,10
+echo -e "fnirting ${subjectT1_Name}"
+fnirt --in=${subjectT1} \
+      --ref=/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz \
+      --aff=${subjectT1_Name}_T1toMNI.mat \
+      --config=T1_2_MNI152_2mm.cnf \
+      --cout=${subjectT1_Name}_coef_T1_to_MNI \
+      --iout=${subjectT1_Name}_T1_to_MNI.nii.gz \
+      --jout=${subjectT1_Name}_T1_to_MNI \
+      --jacrange=0.1,10
 
 
  #inverse the non-linear transform
@@ -475,28 +475,28 @@ fslmerge -t corrected_masks.nii.gz ${subjectT1}_*_brain_mask_corrected.nii.gz
 fslmaths corrected_masks.nii.gz -Tmean raw_ave_masks_corrected.nii.gz
 
 #some thresholds for the data, have a smoothed version as well (generally better looking)
-fslmaths raw_ave_masks_corrected.nii.gz -thr 1.0 -bin mask_100.nii.gz
-fslmaths mask_100.nii.gz -kernel boxv 5x5x5 -fmedian mask_100_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.9 -bin mask_90.nii.gz
-fslmaths mask_90.nii.gz -kernel boxv 5x5x5 -fmedian mask_90_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.8 -bin mask_80.nii.gz
-fslmaths mask_80.nii.gz -kernel boxv 5x5x5 -fmedian mask_80_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.7 -bin mask_70.nii.gz
-fslmaths mask_70.nii.gz -kernel boxv 5x5x5 -fmedian mask_70_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.6 -bin mask_60.nii.gz
-fslmaths mask_60.nii.gz -kernel boxv 5x5x5 -fmedian mask_60_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.5 -bin mask_50.nii.gz
-fslmaths mask_50.nii.gz -kernel boxv 5x5x5 -fmedian mask_50_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.4 -bin mask_40.nii.gz
-fslmaths mask_40.nii.gz -kernel boxv 5x5x5 -fmedian mask_40_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.3 -bin mask_30.nii.gz
-fslmaths mask_30.nii.gz -kernel boxv 5x5x5 -fmedian mask_30_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.2 -bin mask_20.nii.gz
-fslmaths mask_20.nii.gz -kernel boxv 5x5x5 -fmedian mask_20_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 1.0 -bin ${subjectT1_Name}_mask_100.nii.gz
+fslmaths ${subjectT1_Name}_mask_100.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_100_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.9 -bin ${subjectT1_Name}_mask_90.nii.gz
+fslmaths ${subjectT1_Name}_mask_90.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_90_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.8 -bin ${subjectT1_Name}_mask_80.nii.gz
+fslmaths ${subjectT1_Name}_mask_80.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_80_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.7 -bin ${subjectT1_Name}_mask_70.nii.gz
+fslmaths ${subjectT1_Name}_mask_70.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_70_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.6 -bin ${subjectT1_Name}_mask_60.nii.gz
+fslmaths ${subjectT1_Name}_mask_60.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_60_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.5 -bin ${subjectT1_Name}_mask_50.nii.gz
+fslmaths ${subjectT1_Name}_mask_50.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_50_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.4 -bin ${subjectT1_Name}_mask_40.nii.gz
+fslmaths ${subjectT1_Name}_mask_40.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_40_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.3 -bin ${subjectT1_Name}_mask_30.nii.gz
+fslmaths ${subjectT1_Name}_mask_30.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_30_smooth.nii.gz
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.2 -bin ${subjectT1_Name}_mask_20.nii.gz
+fslmaths ${subjectT1_Name}_mask_20.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1}_mask_20_smooth.nii.gz
 
 #A place to put the above results
 
-mv mask_* ${outputDir}
+mv ${subjectT1}_mask_* ${outputDir}
 
 #this was moved to beginning in order to minimally affect other files not a part of this script
 #mkdir -p MBA_junk
