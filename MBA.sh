@@ -1,15 +1,14 @@
 #!/bin/bash -x
 
 function printCommandLine {
-  echo "Usage: MBA_batch.sh -i input directory -o output directory -s subject list (.txt) -A algorithm directory -j jobs"
+  echo "Usage: MBA.sh -i input directory -o output directory -s subject list (.txt) -A algorithm directory -j jobs"
   echo " where"
-  echo "   -i input directory where the subject folders are located"
-  echo "   -o output directory where the generated .sh files will be placed"
-  echo "   -s the list of subjects from the directory that are being used"
-  echo "   -A The directory where the training masks are (i.e. the images the algorithm was trained using)"
-  echo "   -j The number of jobs you want to run in parallel"
-  echo "Additionally, please do not place a / after the final directory listed for -i and -o"
-  echo "ex: DO- some/directory  DONT- some/directory/"
+  echo "   -s The subjects T1 structural scan"
+  echo "   -o Where the output brain masks will be placed"
+  echo "   -a the directory where the output of MBA_train.sh resides"
+  echo "   -b a prior probability map for the brain"
+
+
  
   exit 1
 }
