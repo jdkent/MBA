@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 function printCommandLine {
-  echo "Usage: MBA.sh -i input directory -o output directory -s subject list (.txt) -A algorithm directory -j jobs"
+  echo "Usage: MBA.sh -i input directory -o output directory -s subject list (.txt) -a algorithm directory"
   echo " where"
   echo "   -s The subjects T1 structural scan"
   echo "   -o Where the output brain masks will be placed"
@@ -14,7 +14,7 @@ function printCommandLine {
 }
 SUBMIT=0
 #List all the options and get them, all options are necessary
-while getopts “h:s:a:b:o:” OPTION
+while getopts “s:a:b:o:h” OPTION
 do
   case $OPTION in
     s)
@@ -38,16 +38,18 @@ do
       ;;
      esac
 done
+ 
+#check if outputDir is made
+if [ "${outputDir}" == "" ]; then
+    outputDir=$(dirname ${subjectT1})
+    echo "outputDir is: ${outputDir}"
+fi
 
 subjectT1_Name=$(basename ${subjectT1} | awk -F"." '{print $1}')
 #data record keeping
 echo "${subjectT1_Name} initialized" >> ${outputDir}/MBA_progress.log
 start_time=$(date +%s)
- 
-#check if outputDir is made
-if [ ! -d ${outputDir} ]; then
-    outputDir=$(pwd)
-fi
+
 
     #directory where all processing takes place
     mkdir -p ${outputDir}/MBA_intermediate_files_${subjectT1_Name}
@@ -491,7 +493,7 @@ fslmaths ${subjectT1_Name}_mask_40.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT
 fslmaths raw_ave_masks_corrected.nii.gz -thr 0.3 -bin ${subjectT1_Name}_mask_30.nii.gz
 fslmaths ${subjectT1_Name}_mask_30.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_30_smooth.nii.gz
 fslmaths raw_ave_masks_corrected.nii.gz -thr 0.2 -bin ${subjectT1_Name}_mask_20.nii.gz
-fslmaths ${subjectT1_Name}_mask_20.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1}_mask_20_smooth.nii.gz
+fslmaths ${subjectT1_Name}_mask_20.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_20_smooth.nii.gz
 
 #A place to put the above results
 
