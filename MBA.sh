@@ -497,7 +497,7 @@ fslmaths ${subjectT1_Name}_mask_20.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT
 
 #A place to put the above results
 
-mv ${subjectT1}_mask_* ${outputDir}
+mv ${subjectT1_Name}_mask_* ${outputDir}
 
 #this was moved to beginning in order to minimally affect other files not a part of this script
 #mkdir -p MBA_junk
