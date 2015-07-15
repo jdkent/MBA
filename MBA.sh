@@ -17,12 +17,12 @@ function softwareCheck()
 }
 
 function printCommandLine {
-  echo "Usage: MBA.sh -i input directory -o output directory -s subject list (.txt) -a algorithm directory"
+  echo "Usage: MBA.sh -s Subject's T1 -o output directory -a algorithm directory -b brain probability map"
   echo " where"
   echo "   -s The subjects T1 structural scan"
   echo "   -o Where the output brain masks will be placed"
-  echo "   -a the directory where the output of MBA_train.sh resides"
-  echo "   -b a prior probability map for the brain"
+  echo "   -a The directory where the output of MBA_train.sh resides"
+  echo "   -b A prior probability map for the brain"
 
 
  

@@ -20,7 +20,7 @@ Parameters:
 Example Calls:
 
 Abstract
-MBA.sh -s <T1> -o </output/directory/> -a </The/Algorithm/Directory/> -b <Brain_Probability_Map>
+MBA.sh -s \<T1\> -o \</output/directory/\> -a \</The/Algorithm/Directory/\> -b \<Brain_Probability_Map\>
 
 Concrete
 MBA.sh -s sub1001.nii.gz -o /Volumes/VossLab/Repositories/Bike/FIRST_practice -a /Volumes/VossLab/Repositories/MBA_maps -b /Volumes/VossLab/Repositories/MBA_maps/brainPrior/Ave_brain.nii.gz
