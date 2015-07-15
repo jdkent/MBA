@@ -1,5 +1,21 @@
 #!/bin/bash -x
 
+function softwareCheck()
+{
+  fsl_check=$(which fsl)
+  afni_check=$(which afni)
+
+  if [ "${afni_check}" == "" ]; then
+      echo "afni is either not downloaded or not defined in your path, exiting script"
+      exit 1
+  fi
+
+  if [ "${fsl_check}" == "" ]; then
+      echo "fsl is either not downloaded or not defined in your path, exiting script"
+      exit 1
+  fi
+}
+
 function printCommandLine {
   echo "Usage: MBA.sh -i input directory -o output directory -s subject list (.txt) -a algorithm directory"
   echo " where"
@@ -39,6 +55,10 @@ do
      esac
 done
  
+ #see if dependencies are accessible
+ softwareCheck
+
+
 #check if outputDir is made
 if [ "${outputDir}" == "" ]; then
     outputDir=$(dirname ${subjectT1})
