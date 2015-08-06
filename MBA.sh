@@ -1,4 +1,91 @@
-#!/bin/bash -x
+#!/bin/bash 
+
+############################################################
+# Bash Settings
+############################################################
+#These are settings to help a script run "cleanly"
+set -o errexit #exits script when a command fails
+set -o pipefail #the exit status of a command that returned a non-zero exit code during a pipe
+set -o nounset #exit the script when you try to use undeclared variables
+#set -o xtrace #prints out the commands a they are called, (for debugging)
+
+
+############################################################
+# Functions
+############################################################
+#What to run when user presses "control C" (kill script)
+function control_c 
+{
+  echo -e "\n## Caught SIGINT: Cleaning up before exit"
+  #rm intermediate files or partial outputs
+  exit $?
+}
+
+
+function clobber
+{ 
+  #Tracking Variables
+  local -i num_existing_files=0
+  local -i num_args=$#
+
+  #Tally all existing outputs
+  for arg in $@; do
+    if [ -e "${arg}" ] && [ "${clob}" == true ]; then
+      rm "${arg}"
+    elif [ -e "${arg}" ] && [ "${clob}" == false ]; then
+      num_existing_files=$(( ${num_existing_files} + 1 ))
+      continue
+    elif [ ! -e "${arg}" ]; then
+      continue
+    else
+      echo "How did you get here?"
+    fi
+  done
+
+  #see if the command should be run by seeing if the requisite files exist.
+  #0=true
+  #1=false
+  if [ ${num_existing_files} -lt ${num_args} ]; then
+    return 0
+  else
+    return 1
+  fi
+
+  #example usage
+  #clobber test.nii.gz &&\
+  #fslmaths input.nii.gz -mul 10 test.nii.gz
+}
+
+function command_check
+{
+  local arg="${1}"
+  command -v "${arg}" > /dev/null 2>&1 || \
+  { echo >&2 "${arg} was not found, exiting script"; exit 1; }
+  #else
+  return 0
+}
+
+
+############################################################
+# Job Control Statements
+############################################################
+#trap (or intercept) the control+C (kill process) command
+trap control_c SIGINT
+trap control_c SIGTERM
+
+
+
+
+
+############################################################
+# Variable Defaults
+############################################################
+clob=false
+
+
+
+
+
 
 function softwareCheck()
 {
@@ -28,6 +115,17 @@ function printCommandLine {
  
   exit 1
 }
+
+############################################################
+# Variable setting and checking
+############################################################
+
+#See if any arguments were passed into this script
+if [ $# -eq 0 ]; then
+  printCommandLine
+fi
+
+
 SUBMIT=0
 #List all the options and get them, all options are necessary
 while getopts “s:a:b:o:h” OPTION
