@@ -4,7 +4,7 @@
 # Bash Settings
 ############################################################
 #These are settings to help a script run "cleanly"
-set -o errexit #exits script when a command fails
+#set -o errexit #exits script when a command fails
 set -o pipefail #the exit status of a command that returned a non-zero exit code during a pipe
 set -o nounset #exit the script when you try to use undeclared variables
 #set -o xtrace #prints out the commands a they are called, (for debugging)
@@ -107,7 +107,7 @@ function printCommandLine {
   echo "Usage: MBA.sh -s Subject's T1 -o output directory -a algorithm directory -b brain probability map"
   echo " where"
   echo "   -s The subjects T1 structural scan"
-  echo "   -o Where the output brain masks will be placed"
+  echo "   -o Where the oultput brain masks will be placed"
   echo "   -a The directory where the output of MBA_train.sh resides"
   echo "   -b A prior probability map for the brain"
 
@@ -417,6 +417,8 @@ while [ ${loop_index} -lt ${#algorithm_arr[@]} ]; do
 
       #This is how we call the algorithm
      echo "clean param is ${clean_param}"
+
+     clobber ${subjectT1_Name}_${algorithm}_${output_arr[${loop_index}]}.nii.gz &&\
      sh -c "${clean_param}"
       
      loop_index=$((${loop_index} + 1 ))
@@ -443,25 +445,31 @@ output_index=0
       3dMean -prefix ${algorDir}/${algorithm}/False_Positives/Ave_${algorithm}_False_Positive.nii.gz $(ls ${algorDir}/${algorithm}/False_Positives/*false_pos_MNI.nii.gz)
     fi
 
-     if [ ! -e ${algorDir}/${algorithm}/False_Negatives/Ave_${algorithm}_False_Negative.nii.gz ]; then
+    if [ ! -e ${algorDir}/${algorithm}/False_Negatives/Ave_${algorithm}_False_Negative.nii.gz ]; then
       3dMean -prefix ${algorDir}/${algorithm}/False_Negatives/Ave_${algorithm}_False_Negative.nii.gz $(ls ${algorDir}/${algorithm}/False_Negatives/*false_neg_MNI.nii.gz)
     fi
 
     output_index=$((${output_index} + 1))
   done
 
+clobber ${subjectT1_Name}_uncorrected_mask_mean.nii.gz &&\
 3dMean -prefix ${subjectT1_Name}_uncorrected_mask_mean.nii.gz ${brain_mask_arr[@]}
+
+clobber ${subjectT1_Name}_uncorrected_mask_mean_thresh.nii.gz &&\
 fslmaths ${subjectT1_Name}_uncorrected_mask_mean.nii.gz -thr 0.75 ${subjectT1_Name}_uncorrected_mask_mean_thresh.nii.gz
 
 #use the mask to create the brain
+clobber ${subjectT1_Name}_uncorrected_brain.nii.gz &&\
 fslmaths ${subjectT1} -mas ${subjectT1_Name}_uncorrected_mask_mean_thresh.nii.gz ${subjectT1_Name}_uncorrected_brain.nii.gz
 
 #push the averaged brain into MNI space
+clobber ${subjectT1_Name}_T1toMNI.mat &&\
 flirt -in ${subjectT1_Name}_uncorrected_brain.nii.gz \
            -ref /usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz \
            -omat ${subjectT1_Name}_T1toMNI.mat
      
 echo -e "fnirting ${subjectT1_Name}"
+clobber ${subjectT1_Name}_coef_T1_to_MNI.nii.gz &&\
 fnirt --in=${subjectT1} \
       --ref=/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz \
       --aff=${subjectT1_Name}_T1toMNI.mat \
@@ -473,14 +481,17 @@ fnirt --in=${subjectT1} \
 
 
  #inverse the non-linear transform
-    invwarp --warp=${subjectT1_Name}_coef_T1_to_MNI.nii.gz --ref=${subjectT1} --out=${subjectT1_Name}_coef_MNI_to_T1 
+clobber ${subjectT1_Name}_coef_MNI_to_T1.nii.gz &&\
+invwarp --warp=${subjectT1_Name}_coef_T1_to_MNI.nii.gz --ref=${subjectT1} --out=${subjectT1_Name}_coef_MNI_to_T1 
  #inverse the linear transform
-    convert_xfm -omat ${subjectT1_Name}_MNItoT1.mat -inverse ${subjectT1_Name}_T1toMNI.mat
+clobber ${subjectT1_Name}_MNItoT1.mat &&\
+convert_xfm -omat ${subjectT1_Name}_MNItoT1.mat -inverse ${subjectT1_Name}_T1toMNI.mat
 
 
 #I don't know why the warps don't need a postmat
 #when I tried it, the images were severely off point
  #average brain
+    clobber ${subjectT1_Name}_P_of_B.nii.gz &&\
     applywarp -i ${brainPrior} \
               -r ${subjectT1} \
               -o ${subjectT1_Name}_P_of_B.nii.gz \
@@ -491,6 +502,7 @@ output_index=0
 for algorithm in ${algorithm_arr[@]}; do
     #false positives
     echo "warping false positives"
+    clobber ${algorithm}_P_of_A_given_not_B.nii.gz &&\
     applywarp -i ${algorDir}/${algorithm}/False_Positives/Ave_${algorithm}_False_Positive.nii.gz \
               -r ${subjectT1} \
               -o ${algorithm}_P_of_A_given_not_B.nii.gz \
@@ -498,6 +510,7 @@ for algorithm in ${algorithm_arr[@]}; do
               #--postmat=${subjectT1_Name}_MNItoT1.mat 
              
     #false negatives
+    clobber ${algorithm}_P_of_not_A_given_B.nii.gz &&\
     applywarp -i ${algorDir}/${algorithm}/False_Negatives/Ave_${algorithm}_False_Negative.nii.gz \
               -r ${subjectT1} \
               -o ${algorithm}_P_of_not_A_given_B.nii.gz \
@@ -509,10 +522,14 @@ for algorithm in ${algorithm_arr[@]}; do
 
 
 #correct the masks for any gross errors (assuming P_of_B contains at least the entire brain)
+    clobber ${algorithm}_mask_corrector.nii.gz &&\
     fslmaths ${subjectT1_Name}_P_of_B.nii.gz -bin ${algorithm}_mask_corrector.nii.gz
+
+    clobber bayes_${algorithm}_brain_mask.nii.gz &&\
     fslmaths ${brain_mask_arr[${output_index}]} -mul ${algorithm}_mask_corrector.nii.gz bayes_${algorithm}_brain_mask.nii.gz
  
     #make an image of all ones
+    clobber ${algorithm}_white_sheet.nii.gz &&\
     fslmaths bayes_${algorithm}_brain_mask.nii.gz -add 2 -bin ${algorithm}_white_sheet.nii.gz
 
     #create the probilities to satisfy the equations:
@@ -527,58 +544,72 @@ for algorithm in ${algorithm_arr[@]}; do
     #set up terms
 
     #P(-B)
+    clobber ${algorithm}_P_of_not_B.nii.gz &&\
     fslmaths ${algorithm}_white_sheet.nii.gz -sub ${subjectT1_Name}_P_of_B.nii.gz ${algorithm}_P_of_not_B.nii.gz
     #P(A|B):true positives
+    clobber ${algorithm}_P_of_A_given_B.nii.gz &&\
     fslmaths ${algorithm}_white_sheet.nii.gz -sub ${algorithm}_P_of_A_given_not_B.nii.gz ${algorithm}_P_of_A_given_B.nii.gz
 
     #P(-A|-B):true negative
+    clobber ${algorithm}_P_of_not_A_given_not_B.nii.gz &&\
     fslmaths ${algorithm}_white_sheet.nii.gz -sub ${algorithm}_P_of_not_A_given_B.nii.gz ${algorithm}_P_of_not_A_given_not_B.nii.gz
     
     
     #solve for false positives: P(-B|A)
     #P(A|-B) * P(-B)
+    clobber ${algorithm}_false_pos_event.nii.gz &&\
     fslmaths ${algorithm}_P_of_A_given_not_B.nii.gz -mul ${algorithm}_P_of_not_B.nii.gz ${algorithm}_false_pos_event.nii.gz
     
     #P(A|B) * P(B)
+    clobber ${algorithm}_true_pos_event.nii.gz &&\
     fslmaths ${algorithm}_P_of_A_given_B.nii.gz -mul ${subjectT1_Name}_P_of_B.nii.gz ${algorithm}_true_pos_event.nii.gz
 
     #((P(A|-B) * P(-B)) + (P(A|B) * P(B)))
+    clobber ${algorithm}_pos_event_space.nii.gz &&\
     fslmaths ${algorithm}_false_pos_event.nii.gz -add ${algorithm}_true_pos_event.nii.gz ${algorithm}_pos_event_space.nii.gz
 
     #(P(A|-B) * P(-B)) / ((P(A|-B) * P(-B)) + (P(A|B) * P(B)))
+    clobber ${algorithm}_pos_posterior.nii.gz &&\
     fslmaths ${algorithm}_false_pos_event.nii.gz -div ${algorithm}_pos_event_space.nii.gz ${algorithm}_pos_posterior.nii.gz
 
 
     #solve for false negatives
     #P(-A|B) * P(B)
+    clobber ${algorithm}_false_neg_event.nii.gz &&\
     fslmaths ${algorithm}_P_of_not_A_given_B.nii.gz -mul ${subjectT1_Name}_P_of_B.nii.gz ${algorithm}_false_neg_event.nii.gz
 
     #P(-A|-B) * P(-B)
+    clobber ${algorithm}_true_neg_event.nii.gz &&\
     fslmaths ${algorithm}_P_of_not_A_given_not_B.nii.gz -mul ${algorithm}_P_of_not_B.nii.gz ${algorithm}_true_neg_event.nii.gz
 
     #((P(-A|B) * P(B)) + (P(-A|-B) * P(-B)))
+    clobber ${algorithm}_neg_event_space.nii.gz &&\
     fslmaths ${algorithm}_false_neg_event.nii.gz -add ${algorithm}_true_neg_event.nii.gz ${algorithm}_neg_event_space.nii.gz
 
     #(P(-A|B) * P(B)) / ((P(-A|B) * P(B)) + (P(-A|-B) * P(-B)))
+    clobber ${algorithm}_neg_posterior.nii.gz &&\
     fslmaths ${algorithm}_false_neg_event.nii.gz -div ${algorithm}_neg_event_space.nii.gz ${algorithm}_neg_posterior.nii.gz
 
 
     #applying corrections to the algorithm's mask.
 
     #correct the false negative voxels that are not in the subject brain mask (correcting for false positive rate)
-    fslmaths ${algorithm}_pos_posterior.nii.gz -sub bayes_${algorithm}_brain_mask.nii.gz -thr 0 ${algorithm}_pos_posterior_nonoverlap.nii.gz
-    fslmaths ${algorithm}_neg_posterior.nii.gz -sub bayes_${algorithm}_brain_mask.nii.gz -thr 0 ${algorithm}_neg_posterior_nonoverlap.nii.gz
-    fslmaths ${algorithm}_neg_posterior_nonoverlap.nii.gz -sub ${algorithm}_pos_posterior_nonoverlap.nii.gz ${algorithm}_neg_posterior_raw_corrected.nii.gz
+    clobber ${algorithm}_applied_false_negatives.nii.gz &&\
+    fslmaths ${algorithm}_pos_posterior.nii.gz -sub bayes_${algorithm}_brain_mask.nii.gz -thr 0 ${algorithm}_pos_posterior_nonoverlap.nii.gz &&\
+    fslmaths ${algorithm}_neg_posterior.nii.gz -sub bayes_${algorithm}_brain_mask.nii.gz -thr 0 ${algorithm}_neg_posterior_nonoverlap.nii.gz &&\
+    fslmaths ${algorithm}_neg_posterior_nonoverlap.nii.gz -sub ${algorithm}_pos_posterior_nonoverlap.nii.gz ${algorithm}_neg_posterior_raw_corrected.nii.gz &&\
     fslmaths ${algorithm}_neg_posterior_raw_corrected.nii.gz -thr 0 ${algorithm}_applied_false_negatives.nii.gz
 
     #get the false positives that are included in the brain mask (correcting for false negative rate)
-    fslmaths ${algorithm}_neg_posterior.nii.gz -mul -1 ${algorithm}_minus_neg.nii.gz
-    fslmaths ${algorithm}_pos_posterior.nii.gz -add ${algorithm}_minus_neg.nii.gz ${algorithm}_false_pos_and_neg.nii.gz
-    fslmaths ${algorithm}_false_pos_and_neg.nii.gz -mul bayes_${algorithm}_brain_mask.nii.gz ${algorithm}_false_pos_and_neg_overlap.nii.gz
+    clobber ${algorithm}_applied_false_positives.nii.gz &&\
+    fslmaths ${algorithm}_neg_posterior.nii.gz -mul -1 ${algorithm}_minus_neg.nii.gz &&\
+    fslmaths ${algorithm}_pos_posterior.nii.gz -add ${algorithm}_minus_neg.nii.gz ${algorithm}_false_pos_and_neg.nii.gz &&\
+    fslmaths ${algorithm}_false_pos_and_neg.nii.gz -mul bayes_${algorithm}_brain_mask.nii.gz ${algorithm}_false_pos_and_neg_overlap.nii.gz &&\
     fslmaths ${algorithm}_false_pos_and_neg_overlap.nii.gz -thr 0 -add 1 ${algorithm}_applied_false_positives.nii.gz
 
     #apply the final corrections to the brain mask
-    fslmaths bayes_${algorithm}_brain_mask.nii.gz -div ${algorithm}_applied_false_positives.nii.gz bayes_${algorithm}_brain_mask_pos_corrected.nii.gz
+    clobber ${subjectT1}_${algorithm}_brain_mask_corrected.nii.gz &&\
+    fslmaths bayes_${algorithm}_brain_mask.nii.gz -div ${algorithm}_applied_false_positives.nii.gz bayes_${algorithm}_brain_mask_pos_corrected.nii.gz &&\
     fslmaths bayes_${algorithm}_brain_mask_pos_corrected.nii.gz -add ${algorithm}_applied_false_negatives.nii.gz ${subjectT1}_${algorithm}_brain_mask_corrected.nii.gz
     
     output_index=$((${output_index} + 1))
@@ -590,32 +621,52 @@ done
 
 
 #combine and threshold the images, may need to do some post-hoc smoothing
+clobber corrected_masks.nii.gz &&\
 fslmerge -t corrected_masks.nii.gz ${subjectT1}_*_brain_mask_corrected.nii.gz
+
+clobber raw_ave_masks_corrected.nii.gz &&\
 fslmaths corrected_masks.nii.gz -Tmean raw_ave_masks_corrected.nii.gz
 
 #some thresholds for the data, have a smoothed version as well (generally better looking)
-fslmaths raw_ave_masks_corrected.nii.gz -thr 1.0 -bin ${subjectT1_Name}_mask_100.nii.gz
+clobber ${subjectT1_Name}_mask_100_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 1.0 -bin ${subjectT1_Name}_mask_100.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_100.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_100_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.9 -bin ${subjectT1_Name}_mask_90.nii.gz
+
+clobber ${subjectT1_Name}_mask_90_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.9 -bin ${subjectT1_Name}_mask_90.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_90.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_90_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.8 -bin ${subjectT1_Name}_mask_80.nii.gz
+
+clobber ${subjectT1_Name}_mask_80_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.8 -bin ${subjectT1_Name}_mask_80.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_80.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_80_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.7 -bin ${subjectT1_Name}_mask_70.nii.gz
+
+clobber ${subjectT1_Name}_mask_70_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.7 -bin ${subjectT1_Name}_mask_70.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_70.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_70_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.6 -bin ${subjectT1_Name}_mask_60.nii.gz
+
+clobber ${subjectT1_Name}_mask_60_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.6 -bin ${subjectT1_Name}_mask_60.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_60.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_60_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.5 -bin ${subjectT1_Name}_mask_50.nii.gz
+
+clobber ${subjectT1_Name}_mask_50_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.5 -bin ${subjectT1_Name}_mask_50.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_50.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_50_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.4 -bin ${subjectT1_Name}_mask_40.nii.gz
+
+clobber ${subjectT1_Name}_mask_40_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.4 -bin ${subjectT1_Name}_mask_40.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_40.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_40_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.3 -bin ${subjectT1_Name}_mask_30.nii.gz
+
+clobber ${subjectT1_Name}_mask_30_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.3 -bin ${subjectT1_Name}_mask_30.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_30.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_30_smooth.nii.gz
-fslmaths raw_ave_masks_corrected.nii.gz -thr 0.2 -bin ${subjectT1_Name}_mask_20.nii.gz
+
+clobber ${subjectT1_Name}_mask_20_smooth.nii.gz &&\
+fslmaths raw_ave_masks_corrected.nii.gz -thr 0.2 -bin ${subjectT1_Name}_mask_20.nii.gz &&\
 fslmaths ${subjectT1_Name}_mask_20.nii.gz -kernel boxv 5x5x5 -fmedian ${subjectT1_Name}_mask_20_smooth.nii.gz
 
 #A place to put the above results
 
-mv ${subjectT1_Name}_mask_* ${outputDir}
+cp ${subjectT1_Name}_mask_* ${outputDir}
 
 #this was moved to beginning in order to minimally affect other files not a part of this script
 #mkdir -p MBA_junk
