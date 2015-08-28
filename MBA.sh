@@ -153,9 +153,18 @@ do
      esac
 done
  
- #see if dependencies are accessible
- softwareCheck
+#see if dependencies are accessible
+softwareCheck
 
+#check to see if all variables are set
+if [ -z ${subjectT1} ] || [ -z ${algorDir} ] || [ -z ${outputDir} ] || [ -z ${brainPrior} ]; then
+  echo "at least one variable is not set. Please check:"
+  echo "subjectT1=${subjectT1}"
+  echo "algorDir=${algoriDir}"
+  echo "outputDir=${outputDir}"
+  echo "brainPrior=${brainPrior}"
+  printCommandLine
+fi
 
 #check if outputDir is made
 if [ "${outputDir}" == "" ]; then
