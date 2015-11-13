@@ -160,7 +160,7 @@ softwareCheck
 if [ -z ${subjectT1} ] || [ -z ${algorDir} ] || [ -z ${outputDir} ] || [ -z ${brainPrior} ]; then
   echo "at least one variable is not set. Please check:"
   echo "subjectT1=${subjectT1}"
-  echo "algorDir=${algoriDir}"
+  echo "algorDir=${algorDir}"
   echo "outputDir=${outputDir}"
   echo "brainPrior=${brainPrior}"
   printCommandLine
@@ -474,13 +474,13 @@ fslmaths ${subjectT1} -mas ${subjectT1_Name}_uncorrected_mask_mean_thresh.nii.gz
 #push the averaged brain into MNI space
 clobber ${subjectT1_Name}_T1toMNI.mat &&\
 flirt -in ${subjectT1_Name}_uncorrected_brain.nii.gz \
-           -ref /usr/local/fsl/data/standard/MNI152_T1_2mm_brain.nii.gz \
+           -ref ${FSLDIR}/data/standard/MNI152_T1_2mm_brain.nii.gz \
            -omat ${subjectT1_Name}_T1toMNI.mat
      
 echo -e "fnirting ${subjectT1_Name}"
 clobber ${subjectT1_Name}_coef_T1_to_MNI.nii.gz &&\
 fnirt --in=${subjectT1} \
-      --ref=/usr/local/fsl/data/standard/MNI152_T1_2mm.nii.gz \
+      --ref=${FSLDIR}/data/standard/MNI152_T1_2mm.nii.gz \
       --aff=${subjectT1_Name}_T1toMNI.mat \
       --config=T1_2_MNI152_2mm.cnf \
       --cout=${subjectT1_Name}_coef_T1_to_MNI \
